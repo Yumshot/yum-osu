@@ -33,16 +33,29 @@ async fn visualize_pattern(beats: &[f64], start_time: Instant, sink: &Sink) {
     let shrink_time = 1.5;
     let mut rng = thread_rng();
 
+    // Define the maximum spawn radius
+    let spawn_radius = width.min(height) / 2.0 - 100.0; // Adjust 100.0 as needed for edge clearance
+    let center = Vec2::new(width / 2.0, height / 2.0);
+
     let circles: Vec<Circle> = beats
         .iter()
-        .map(|&beat_time| Circle {
-            position: Vec2::new(
-                rng.gen_range(50.0..width - 50.0),
-                rng.gen_range(50.0..height - 50.0)
-            ),
-            spawn_time: beat_time - shrink_time,
-            hit_time: beat_time,
-            max_radius: 100.0,
+        .map(|&beat_time| {
+            // Generate a random angle and distance within the spawn radius
+            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+            let distance = rng.gen_range(0.0..spawn_radius);
+
+            // Calculate the position using polar coordinates
+            let position = Vec2::new(
+                center.x + distance * angle.cos(),
+                center.y + distance * angle.sin()
+            );
+
+            Circle {
+                position,
+                spawn_time: beat_time - shrink_time,
+                hit_time: beat_time,
+                max_radius: 100.0,
+            }
         })
         .collect();
 
