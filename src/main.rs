@@ -21,7 +21,7 @@ async fn main() {
     let sink = Sink::try_new(&stream_handle).unwrap();
 
     // Gather kick drum beats and start audio playback
-    let beats = gather_beats("src/assets/music/hardy.mp3", &sink);
+    let beats = gather_beats("src/assets/music/hardy.mp3", &sink).await;
 
     // Start visualization
     let start_time = Instant::now();
@@ -67,7 +67,7 @@ async fn visualize_pattern(beats: &[f64], start_time: Instant, sink: &Sink) {
     }
 }
 
-fn gather_beats(path: &str, sink: &Sink) -> Vec<f64> {
+async fn gather_beats(path: &str, sink: &Sink) -> Vec<f64> {
     // Decode audio for analysis
     let file = File::open(path).expect("Failed to open audio file");
     let reader = BufReader::new(file);
