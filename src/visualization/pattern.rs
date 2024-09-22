@@ -102,6 +102,18 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
             let scale = 1.0 - time_since_spawn / shrink_time;
             let radius = circle.max_radius * (scale as f32);
 
+            // Define the outline color and thickness
+            let outline_color = Color::new(0.0, 0.0, 0.0, 0.5); // Semi-transparent black
+            let outline_thickness = 2.0; // Adjust thickness as needed
+
+            // Draw the outline first (a slightly larger circle behind the main circle)
+            draw_circle(
+                circle.position.x,
+                circle.position.y,
+                radius + outline_thickness,
+                outline_color
+            );
+
             // Change circle color based on time since spawn
             let color = Color::new(
                 0.2 + (scale as f32) * 0.8, // Red component varies
@@ -110,6 +122,7 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
                 1.0
             );
 
+            // Draw the main circle
             draw_circle(circle.position.x, circle.position.y, radius, color);
         }
     }
