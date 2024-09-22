@@ -119,7 +119,7 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
                 0.2 + (scale as f32) * 0.8, // Red component varies
                 0.4,
                 0.8 - (scale as f32) * 0.8, // Blue component varies
-                1.0
+                0.8 - (scale as f32) * 0.5
             );
 
             // Draw the main circle
