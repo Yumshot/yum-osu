@@ -17,9 +17,9 @@ pub async fn visualize_pattern(beats: &[f64], start_time: Instant, sink: &Sink) 
 
     loop {
         let elapsed = start_time.elapsed().as_secs_f64();
-        clear_background(WHITE);
+        draw_background(width, height, elapsed);
 
-        handle_mouse_click(&mut circles, elapsed, &mut score, shrink_time);
+        handle_key_hits(&mut circles, elapsed, &mut score, shrink_time);
         draw_circles(&circles, elapsed, shrink_time);
         draw_score(score);
 
@@ -64,24 +64,31 @@ fn initialize_circles(
         .collect()
 }
 
-fn handle_mouse_click(circles: &mut Vec<Circle>, elapsed: f64, score: &mut i32, shrink_time: f64) {
-    if is_mouse_button_pressed(MouseButton::Left) {
-        let mouse_pos: Vec2 = mouse_position().into();
-        let mut hit_detected = false;
+fn handle_key_hits(circles: &mut Vec<Circle>, elapsed: f64, score: &mut i32, shrink_time: f64) {
+    let mouse_pos: Vec2 = mouse_position().into();
+    let mut hit_detected = false;
 
-        for circle in circles.iter_mut() {
-            let time_since_spawn = elapsed - circle.spawn_time;
+    // Check if A or S keys are pressed
+    let a_pressed = is_key_pressed(KeyCode::A);
+    let s_pressed = is_key_pressed(KeyCode::S);
 
-            if (0.0..=shrink_time).contains(&time_since_spawn) && !circle.hit {
-                let scale = 1.0 - time_since_spawn / shrink_time;
-                let radius = circle.max_radius * (scale as f32);
+    // Iterate through the circles to check for hits based on mouse position and key presses
+    for circle in circles.iter_mut() {
+        let time_since_spawn = elapsed - circle.spawn_time;
 
-                let distance = mouse_pos.distance(circle.position);
-                if distance < radius && !hit_detected {
-                    circle.hit = true;
-                    *score += calculate_score(circle.hit_time, elapsed);
-                    hit_detected = true;
-                }
+        if (0.0..=shrink_time).contains(&time_since_spawn) && !circle.hit {
+            let scale = 1.0 - time_since_spawn / shrink_time;
+            let radius = circle.max_radius * (scale as f32);
+
+            // Calculate the distance from the mouse position to the circle position
+            let distance = mouse_pos.distance(circle.position);
+
+            // Hit detection: the target is hit if the mouse is within the circle's radius
+            // and one of the specified keys is pressed
+            if distance < radius && !hit_detected && (a_pressed || s_pressed) {
+                circle.hit = true;
+                *score += calculate_score(circle.hit_time, elapsed);
+                hit_detected = true; // Prevent further hits in this frame
             }
         }
     }
@@ -94,13 +101,50 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
         if (0.0..=shrink_time).contains(&time_since_spawn) && !circle.hit {
             let scale = 1.0 - time_since_spawn / shrink_time;
             let radius = circle.max_radius * (scale as f32);
-            draw_circle(circle.position.x, circle.position.y, radius, BLUE);
+
+            // Change circle color based on time since spawn
+            let color = Color::new(
+                0.2 + (scale as f32) * 0.8, // Red component varies
+                0.4,
+                0.8 - (scale as f32) * 0.8, // Blue component varies
+                1.0
+            );
+
+            draw_circle(circle.position.x, circle.position.y, radius, color);
         }
     }
 }
 
 fn draw_score(score: i32) {
-    draw_text(&format!("Score: {}", score), 20.0, 40.0, 30.0, BLACK);
+    // Styled score display with shadow
+    let score_text = format!("Score: {}", score);
+    let x = 20.0;
+    let y = 40.0;
+
+    // Shadow effect
+    draw_text(&score_text, x + 2.0, y + 2.0, 40.0, DARKGRAY);
+
+    // Main score text
+    draw_text(&score_text, x, y, 40.0, Color::from_rgba(255, 223, 0, 255)); // Gold color
+}
+
+fn draw_background(width: f32, height: f32, elapsed: f64) {
+    // Gradient background with slight animation
+    let color1 = Color::new(0.1, 0.1, 0.3, 1.0);
+    let color2 = Color::new(0.2, 0.2, 0.5, 1.0);
+    let offset = (elapsed.sin() as f32) * 0.1;
+
+    // Top to bottom gradient
+    for y in 0..height as i32 {
+        let t = (y as f32) / height + offset;
+        let blend_color = Color::new(
+            color1.r * (1.0 - t) + color2.r * t,
+            color1.g * (1.0 - t) + color2.g * t,
+            color1.b * (1.0 - t) + color2.b * t,
+            1.0
+        );
+        draw_line(0.0, y as f32, width, y as f32, 1.0, blend_color);
+    }
 }
 
 fn calculate_score(hit_time: f64, current_time: f64) -> i32 {
