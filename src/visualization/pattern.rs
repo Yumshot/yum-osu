@@ -4,23 +4,32 @@ use macroquad::prelude::*;
 use rodio::Sink;
 use std::time::Instant;
 
+const SHRINK_TIME: f64 = 1.5;
+const CIRCLE_MAX_RADIUS: f32 = 100.0;
+const OUTLINE_THICKNESS: f32 = 2.0;
+const SCORE_FONT_SIZE: f32 = 40.0;
+const DARKGRAY: Color = Color::new(50.0, 50.0, 50.0, 255.0);
+const GOLD_COLOR: Color = Color::new(255.0, 223.0, 0.0, 255.0);
+const OUTLINE_COLOR: Color = Color::new(0.0, 0.0, 0.0, 0.5);
+const DRAW_SCORE_X: f32 = 20.0;
+const DRAW_SCORE_Y: f32 = 40.0;
+
 pub async fn visualize_pattern(beats: &[f64], start_time: Instant, sink: &Sink) {
     let (width, height) = (screen_width(), screen_height());
     let mut rng = ::rand::thread_rng();
-    let shrink_time = 1.5;
 
     let spawn_radius = calculate_spawn_radius(width, height);
     let center = Vec2::new(width / 2.0, height / 2.0);
 
-    let mut circles = initialize_circles(beats, &mut rng, spawn_radius, center, shrink_time);
+    let mut circles = initialize_circles(beats, &mut rng, spawn_radius, center, SHRINK_TIME);
     let mut score = 0;
 
     loop {
         let elapsed = start_time.elapsed().as_secs_f64();
         draw_background(width, height, elapsed);
 
-        handle_key_hits(&mut circles, elapsed, &mut score, shrink_time);
-        draw_circles(&circles, elapsed, shrink_time);
+        handle_key_hits(&mut circles, elapsed, &mut score, SHRINK_TIME);
+        draw_circles(&circles, elapsed, SHRINK_TIME);
         draw_score(score);
 
         if sink.empty() {
@@ -40,7 +49,7 @@ fn initialize_circles(
     rng: &mut impl Rng,
     spawn_radius: f32,
     center: Vec2,
-    shrink_time: f64
+    shrink_time: f64,
 ) -> Vec<Circle> {
     beats
         .iter()
@@ -50,14 +59,14 @@ fn initialize_circles(
 
             let position = Vec2::new(
                 center.x + distance * angle.cos(),
-                center.y + distance * angle.sin()
+                center.y + distance * angle.sin(),
             );
 
             Circle {
                 position,
                 spawn_time: beat_time - shrink_time,
                 hit_time: beat_time,
-                max_radius: 100.0,
+                max_radius: CIRCLE_MAX_RADIUS,
                 hit: false,
             }
         })
@@ -103,15 +112,13 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
             let radius = circle.max_radius * (scale as f32);
 
             // Define the outline color and thickness
-            let outline_color = Color::new(0.0, 0.0, 0.0, 0.5); // Semi-transparent black
-            let outline_thickness = 2.0; // Adjust thickness as needed
 
             // Draw the outline first (a slightly larger circle behind the main circle)
             draw_circle(
                 circle.position.x,
                 circle.position.y,
-                radius + outline_thickness,
-                outline_color
+                radius + OUTLINE_THICKNESS,
+                OUTLINE_COLOR,
             );
 
             // Change circle color based on time since spawn
@@ -119,7 +126,7 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
                 0.2 + (scale as f32) * 0.8, // Red component varies
                 0.4,
                 0.8 - (scale as f32) * 0.8, // Blue component varies
-                0.8 - (scale as f32) * 0.5
+                0.8 - (scale as f32) * 0.5,
             );
 
             // Draw the main circle
@@ -131,14 +138,24 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
 fn draw_score(score: i32) {
     // Styled score display with shadow
     let score_text = format!("Score: {}", score);
-    let x = 20.0;
-    let y = 40.0;
 
     // Shadow effect
-    draw_text(&score_text, x + 2.0, y + 2.0, 40.0, DARKGRAY);
+    draw_text(
+        &score_text,
+        DRAW_SCORE_X + 2.0,
+        DRAW_SCORE_Y + 2.0,
+        SCORE_FONT_SIZE,
+        DARKGRAY,
+    );
 
     // Main score text
-    draw_text(&score_text, x, y, 40.0, Color::from_rgba(255, 223, 0, 255)); // Gold color
+    draw_text(
+        &score_text,
+        DRAW_SCORE_X,
+        DRAW_SCORE_Y,
+        SCORE_FONT_SIZE,
+        GOLD_COLOR,
+    ); // Gold color
 }
 
 fn draw_background(width: f32, height: f32, elapsed: f64) {
@@ -154,7 +171,7 @@ fn draw_background(width: f32, height: f32, elapsed: f64) {
             color1.r * (1.0 - t) + color2.r * t,
             color1.g * (1.0 - t) + color2.g * t,
             color1.b * (1.0 - t) + color2.b * t,
-            1.0
+            1.0,
         );
         draw_line(0.0, y as f32, width, y as f32, 1.0, blend_color);
     }
