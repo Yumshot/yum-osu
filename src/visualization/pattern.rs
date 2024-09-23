@@ -49,7 +49,7 @@ fn initialize_circles(
     rng: &mut impl Rng,
     spawn_radius: f32,
     center: Vec2,
-    shrink_time: f64,
+    shrink_time: f64
 ) -> Vec<Circle> {
     beats
         .iter()
@@ -59,7 +59,7 @@ fn initialize_circles(
 
             let position = Vec2::new(
                 center.x + distance * angle.cos(),
-                center.y + distance * angle.sin(),
+                center.y + distance * angle.sin()
             );
 
             Circle {
@@ -75,29 +75,14 @@ fn initialize_circles(
 
 fn handle_key_hits(circles: &mut Vec<Circle>, elapsed: f64, score: &mut i32, shrink_time: f64) {
     let mouse_pos: Vec2 = mouse_position().into();
-    let mut hit_detected = false;
+    let key_pressed = is_key_pressed(KeyCode::A) || is_key_pressed(KeyCode::S);
 
-    // Check if A or S keys are pressed
-    let a_pressed = is_key_pressed(KeyCode::A);
-    let s_pressed = is_key_pressed(KeyCode::S);
-
-    // Iterate through the circles to check for hits based on mouse position and key presses
-    for circle in circles.iter_mut() {
-        let time_since_spawn = elapsed - circle.spawn_time;
-
-        if (0.0..=shrink_time).contains(&time_since_spawn) && !circle.hit {
-            let scale = 1.0 - time_since_spawn / shrink_time;
-            let radius = circle.max_radius * (scale as f32);
-
-            // Calculate the distance from the mouse position to the circle position
-            let distance = mouse_pos.distance(circle.position);
-
-            // Hit detection: the target is hit if the mouse is within the circle's radius
-            // and one of the specified keys is pressed
-            if distance < radius && !hit_detected && (a_pressed || s_pressed) {
+    for circle in circles.iter_mut().filter(|c| !c.hit) {
+        if let Some(radius) = circle_radius(circle, elapsed, shrink_time) {
+            if mouse_pos.distance(circle.position) < radius && key_pressed {
                 circle.hit = true;
                 *score += calculate_score(circle.hit_time, elapsed);
-                hit_detected = true; // Prevent further hits in this frame
+                break; // Prevent multiple hits in one frame
             }
         }
     }
@@ -118,7 +103,7 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
                 circle.position.x,
                 circle.position.y,
                 radius + OUTLINE_THICKNESS,
-                OUTLINE_COLOR,
+                OUTLINE_COLOR
             );
 
             // Change circle color based on time since spawn
@@ -126,7 +111,7 @@ fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
                 0.2 + (scale as f32) * 0.8, // Red component varies
                 0.4,
                 0.8 - (scale as f32) * 0.8, // Blue component varies
-                0.8 - (scale as f32) * 0.5,
+                0.8 - (scale as f32) * 0.5
             );
 
             // Draw the main circle
@@ -140,22 +125,10 @@ fn draw_score(score: i32) {
     let score_text = format!("Score: {}", score);
 
     // Shadow effect
-    draw_text(
-        &score_text,
-        DRAW_SCORE_X + 2.0,
-        DRAW_SCORE_Y + 2.0,
-        SCORE_FONT_SIZE,
-        DARKGRAY,
-    );
+    draw_text(&score_text, DRAW_SCORE_X + 2.0, DRAW_SCORE_Y + 2.0, SCORE_FONT_SIZE, DARKGRAY);
 
     // Main score text
-    draw_text(
-        &score_text,
-        DRAW_SCORE_X,
-        DRAW_SCORE_Y,
-        SCORE_FONT_SIZE,
-        GOLD_COLOR,
-    ); // Gold color
+    draw_text(&score_text, DRAW_SCORE_X, DRAW_SCORE_Y, SCORE_FONT_SIZE, GOLD_COLOR); // Gold color
 }
 
 fn draw_background(width: f32, height: f32, elapsed: f64) {
@@ -171,7 +144,7 @@ fn draw_background(width: f32, height: f32, elapsed: f64) {
             color1.r * (1.0 - t) + color2.r * t,
             color1.g * (1.0 - t) + color2.g * t,
             color1.b * (1.0 - t) + color2.b * t,
-            1.0,
+            1.0
         );
         draw_line(0.0, y as f32, width, y as f32, 1.0, blend_color);
     }
