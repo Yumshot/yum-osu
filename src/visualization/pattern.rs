@@ -88,6 +88,15 @@ fn handle_key_hits(circles: &mut Vec<Circle>, elapsed: f64, score: &mut i32, shr
     }
 }
 
+fn circle_radius(circle: &Circle, elapsed: f64, shrink_time: f64) -> Option<f32> {
+    let time_since_spawn = elapsed - circle.spawn_time;
+    if (0.0..=shrink_time).contains(&time_since_spawn) {
+        Some(circle.max_radius * (1.0 - ((time_since_spawn / shrink_time) as f32)))
+    } else {
+        None
+    }
+}
+
 fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
     for circle in circles {
         let time_since_spawn = elapsed - circle.spawn_time;
