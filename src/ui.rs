@@ -1,10 +1,10 @@
 use macroquad::{
-    color::{ BLACK, DARKGRAY, LIGHTGRAY, WHITE },
+    color::WHITE,
     input::{ is_key_down, is_mouse_button_pressed, mouse_position, KeyCode, MouseButton },
     prelude::Color,
-    shapes::{ draw_line, draw_rectangle },
-    text::draw_text,
-    texture::{ draw_texture, load_texture },
+    shapes::{ draw_line, draw_rectangle, draw_rectangle_lines },
+    text::{ draw_text_ex, load_ttf_font, measure_text, TextParams },
+    time::get_time,
     window::{ clear_background, screen_height, screen_width },
 };
 use crate::structs::{ Assets, SongSelectionState, FloatingText };
@@ -21,12 +21,10 @@ use std::fs;
 /// * `menu_background` is the background image for the main menu.
 /// * `start_button` is the start button image.
 pub async fn load_ui_assets() -> Assets {
-    let menu_background = load_texture("src/assets/images/main_menu.png").await.unwrap();
-    let start_button = load_texture("src/assets/images/start_button.png").await.unwrap();
+    let cyberpunk_font = load_ttf_font("src/assets/fonts/teknaf.otf").await.unwrap();
 
     Assets {
-        menu_background,
-        start_button,
+        cyberpunk_font,
     }
 }
 
@@ -44,32 +42,107 @@ pub async fn load_ui_assets() -> Assets {
 /// If the player has not pressed the start button, the function returns `false`.
 ///
 /// The function also draws the UI elements, such as the background image and the start button.
-pub fn draw_menu(assets: &Assets) -> bool {
-    let mut start_game = false;
+pub fn draw_menu(assets: &Assets) -> Option<String> {
+    clear_background(DARK_BACKGROUND);
 
-    clear_background(BLACK);
+    let scr_width = screen_width();
+    let scr_height = screen_height();
 
-    draw_texture(&assets.menu_background, 0.0, 0.0, WHITE);
+    // Set the animated gradient background (optional)
+    let elapsed = get_time(); // Assuming this tracks elapsed time
+    draw_background(scr_width, scr_height, elapsed);
 
-    let start_button = &assets.start_button;
-    let button_x = screen_width() / 2.0 - start_button.width() / 2.0;
-    let button_y = screen_height() / 2.0;
+    // Draw the title with neon glow
+    let title_text = "YumOsu!";
+    let font_size = 72.0;
+    let text_dimensions = measure_text(
+        title_text,
+        Some(&assets.cyberpunk_font),
+        font_size as u16,
+        1.0
+    );
+    let text_x = (scr_width - text_dimensions.width) / 2.0;
+    let text_y = scr_height * 0.2; // Place the title at 20% of screen height
 
-    draw_texture(start_button, button_x, button_y, WHITE);
+    // Draw glowing title text
+    draw_text_ex(title_text, text_x, text_y, TextParams {
+        font: Some(&assets.cyberpunk_font),
+        font_size: font_size as u16,
+        color: NEON_PINK,
+        ..Default::default()
+    });
 
-    if is_mouse_button_pressed(MouseButton::Left) {
+    // Button properties
+    let button_width = 200.0;
+    let button_height = 60.0;
+    let button_spacing = scr_height * 0.05; // 5% of screen height as spacing
+
+    // Calculate starting Y position for the buttons (start at 40% of the screen height)
+    let start_y = scr_height * 0.4;
+
+    // Create a vector of buttons with labels and corresponding y-positions
+    let buttons = vec![
+        ("Start Game", start_y),
+        ("Settings", start_y + button_height + button_spacing),
+        ("Exit", start_y + 2.0 * (button_height + button_spacing))
+    ];
+
+    // Loop through buttons and draw them
+    let mut selected_button: Option<String> = None;
+    for (label, y_pos) in buttons.iter() {
+        let button_x = (scr_width - button_width) / 2.0;
+
+        // Check if the button is hovered
         let mouse_pos = mouse_position();
-        if
+        let is_hovered =
             mouse_pos.0 >= button_x &&
-            mouse_pos.0 <= button_x + start_button.width() &&
-            mouse_pos.1 >= button_y &&
-            mouse_pos.1 <= button_y + start_button.height()
-        {
-            start_game = true;
+            mouse_pos.0 <= button_x + button_width &&
+            mouse_pos.1 >= *y_pos &&
+            mouse_pos.1 <= *y_pos + button_height;
+
+        // Change color when hovered
+        let button_color = if is_hovered { NEON_GREEN } else { NEON_BLUE };
+
+        draw_rectangle(button_x, *y_pos, button_width, button_height, button_color);
+
+        // Add glow effect around the button
+        for i in 1..5 {
+            let glow_alpha = 0.1 / (i as f32);
+            draw_rectangle_lines(
+                button_x - (i as f32),
+                *y_pos - (i as f32),
+                button_width + 2.0 * (i as f32),
+                button_height + 2.0 * (i as f32),
+                2.0,
+                Color::new(button_color.r, button_color.g, button_color.b, glow_alpha)
+            );
+        }
+
+        // Draw the button text
+        let text_dimensions = measure_text(
+            label,
+            Some(&assets.cyberpunk_font),
+            CYBERPUNK_FONT_SIZE as u16,
+            1.0
+        );
+        let text_x = button_x + (button_width - text_dimensions.width) / 2.0;
+        let text_y = y_pos + (button_height + text_dimensions.height) / 2.0;
+
+        draw_text_ex(label, text_x, text_y, TextParams {
+            font: Some(&assets.cyberpunk_font),
+            font_size: CYBERPUNK_FONT_SIZE as u16,
+            color: WHITE,
+            ..Default::default()
+        });
+
+        // Check if the button is clicked
+        if is_mouse_button_pressed(MouseButton::Left) && is_hovered {
+            selected_button = Some(label.to_string());
         }
     }
 
-    start_game
+    // Return the selected button label if clicked, else None
+    selected_button
 }
 
 /// Implement the `SongSelectionState` struct.
@@ -101,50 +174,123 @@ impl SongSelectionState {
 /// If the player has not selected a song, the function returns `None`.
 ///
 /// The function also draws the UI elements, such as the list of songs and the selected song.
-pub fn draw_choose_audio(state: &mut SongSelectionState, songs: &[String]) -> Option<String> {
-    clear_background(BLACK);
+pub fn draw_choose_audio(
+    state: &mut SongSelectionState,
+    songs: &[String],
+    assets: &Assets
+) -> Option<String> {
+    clear_background(DARK_BACKGROUND);
 
-    draw_text("List of audio files", 20.0, 50.0, 30.0, DARKGRAY);
-
+    let screen_w = screen_width();
     let screen_h = screen_height();
 
+    // Get the time for animations (pulsing glow, etc.)
+    let elapsed_time = get_time();
+
+    // Draw the title at the top
+    let title_text = "Select a Song";
+    draw_text_ex(title_text, 20.0, screen_h * 0.1, TextParams {
+        font: Some(&assets.cyberpunk_font),
+        font_size: CYBERPUNK_FONT_SIZE as u16,
+        color: NEON_PURPLE,
+        ..Default::default()
+    });
+
+    // Handle scrolling with Up/Down arrow keys
     if is_key_down(KeyCode::Down) {
         state.scroll_pos += 5.0;
     }
     if is_key_down(KeyCode::Up) {
         state.scroll_pos -= 5.0;
     }
-    if state.scroll_pos < 0.0 {
-        state.scroll_pos = 0.0;
-    }
 
+    // Clamp scroll position to prevent overscrolling
+    let max_scroll = (songs.len() as f32) * (SONG_ENTRY_HEIGHT + 20.0) - screen_h * 0.7;
+    state.scroll_pos = state.scroll_pos.clamp(0.0, max_scroll.max(0.0));
+
+    // Define the vertical gap between song entries
+    let vertical_gap = 20.0;
+
+    // Iterate through the songs and draw them as buttons
     for (i, song) in songs.iter().enumerate() {
-        let button_x = 20.0;
-        let button_y = 80.0 + (i as f32) * SONG_ENTRY_HEIGHT - state.scroll_pos;
+        let button_x = screen_w * 0.05; // 5% from the left edge
+        let button_y =
+            screen_h * 0.2 + (i as f32) * (SONG_ENTRY_HEIGHT + vertical_gap) - state.scroll_pos;
 
         if button_y > SONG_ENTRY_HEIGHT && button_y < screen_h - SONG_ENTRY_HEIGHT {
-            let button_width = 300.0;
-            let button_height = 35.0;
-            draw_rectangle(
-                button_x - 5.0,
-                button_y - 25.0,
-                button_width,
-                button_height,
-                Color::new(1.0, 1.0, 1.0, 0.3)
-            );
-            let song_name = song.split('/').last().unwrap();
-            draw_text(song_name, button_x, button_y, FONT_SIZE, WHITE);
+            let button_width = screen_w * 0.9; // 90% of screen width
+            let button_height = SONG_ENTRY_HEIGHT;
 
-            if is_mouse_button_pressed(MouseButton::Left) {
-                let mouse_pos = mouse_position();
-                if
-                    mouse_pos.0 >= button_x - 5.0 &&
-                    mouse_pos.0 <= button_x - 5.0 + button_width &&
-                    mouse_pos.1 >= button_y - 25.0 &&
-                    mouse_pos.1 <= button_y - 25.0 + button_height
-                {
-                    return Some(song.clone());
-                }
+            // Check if the button is hovered
+            let mouse_pos = mouse_position();
+            let is_hovered =
+                mouse_pos.0 >= button_x &&
+                mouse_pos.0 <= button_x + button_width &&
+                mouse_pos.1 >= button_y &&
+                mouse_pos.1 <= button_y + button_height;
+
+            // Hover animation: Scale the button when hovered
+            let scale_factor = if is_hovered { 1.1 } else { 1.0 };
+            let scaled_button_width = button_width * scale_factor;
+            let scaled_button_height = button_height * scale_factor;
+            let scaled_button_x = button_x - (scaled_button_width - button_width) / 2.0;
+            let scaled_button_y = button_y - (scaled_button_height - button_height) / 2.0;
+
+            // Glow animation: Pulse the glow
+            let pulse_intensity = 0.5 + (elapsed_time.sin() as f32) * 0.5;
+            let glow_color = Color::new(NEON_GREEN.r, NEON_GREEN.g, NEON_GREEN.b, pulse_intensity);
+
+            // Draw neon rectangle for the song entry with scaling
+            draw_rectangle(
+                scaled_button_x,
+                scaled_button_y,
+                scaled_button_width,
+                scaled_button_height,
+                NEON_GREEN
+            );
+
+            // Add pulsing glow effect around the button
+            for glow_level in 1..3 {
+                let glow_alpha = (0.1 / (glow_level as f32)) * pulse_intensity;
+                draw_rectangle_lines(
+                    scaled_button_x - (glow_level as f32),
+                    scaled_button_y - (glow_level as f32),
+                    scaled_button_width + 2.0 * (glow_level as f32),
+                    scaled_button_height + 2.0 * (glow_level as f32),
+                    1.0,
+                    Color::new(glow_color.r, glow_color.g, glow_color.b, glow_alpha)
+                );
+            }
+
+            // Extract the song name (last part of the path) and remove .mp3 from the end of it
+            let song_name = song
+                .split('/')
+                .last()
+                .unwrap_or(song)
+                .to_uppercase()
+                .replace(".MP3", "");
+
+            // Measure text to center it within the scaled button
+            let text_dimensions = measure_text(
+                &song_name,
+                Some(&assets.cyberpunk_font),
+                CYBERPUNK_FONT_SIZE as u16,
+                1.0
+            );
+            let text_x = scaled_button_x + (scaled_button_width - text_dimensions.width) / 2.0; // Center horizontally
+            let text_y = scaled_button_y + (scaled_button_height + text_dimensions.height) / 2.0; // Center vertically
+
+            // Draw the song name centered on the scaled button
+            draw_text_ex(&song_name, text_x, text_y, TextParams {
+                font: Some(&assets.cyberpunk_font),
+                font_size: CYBERPUNK_FONT_SIZE as u16,
+                color: WHITE,
+                ..Default::default()
+            });
+
+            // Check if the song entry is clicked
+            if is_mouse_button_pressed(MouseButton::Left) && is_hovered {
+                return Some(song.clone());
             }
         }
     }
@@ -182,23 +328,57 @@ pub fn load_songs_from_assets() -> Vec<String> {
 /// The function draws a black rectangle with a white border and a loading bar inside.
 ///
 /// The loading bar is a gray rectangle that fills up the black rectangle as the elapsed time increases.
-pub fn draw_loading_bar(elapsed_time: f32) {
+pub fn draw_loading_bar(elapsed_time: f32, assets: &Assets) {
     let scr_width = screen_width();
     let scr_height = screen_height();
 
-    draw_rectangle(0.0, 0.0, scr_width, scr_height, BLACK);
+    clear_background(DARK_BACKGROUND);
 
-    draw_text("Loading...", scr_width / 2.0 - 70.0, scr_height / 2.0 - 50.0, 30.0, WHITE);
-
+    // Define loading bar properties
     let bar_width = 300.0;
     let bar_height = 30.0;
     let bar_x = scr_width / 2.0 - bar_width / 2.0;
     let bar_y = scr_height / 2.0;
 
+    // Measure the "Loading..." text width to center it above the loading bar
+    let loading_text = "Loading...";
+    let text_dimensions = measure_text(
+        loading_text,
+        Some(&assets.cyberpunk_font),
+        CYBERPUNK_FONT_SIZE as u16,
+        1.0
+    );
+    let text_x = (scr_width - text_dimensions.width) / 2.0; // Center horizontally
+    let text_y = bar_y - 40.0; // Position 40 pixels above the loading bar
+
+    // Draw "Loading..." text centered above the loading bar
+    draw_text_ex(loading_text, text_x, text_y, TextParams {
+        font: Some(&assets.cyberpunk_font),
+        font_size: CYBERPUNK_FONT_SIZE as u16,
+        color: NEON_PINK,
+        ..Default::default()
+    });
+
+    // Draw neon loading bar
     let progress = (elapsed_time % 2.0) / 2.0;
 
-    draw_rectangle(bar_x, bar_y, bar_width, bar_height, WHITE);
-    draw_rectangle(bar_x, bar_y, bar_width * progress, bar_height, LIGHTGRAY);
+    draw_rectangle(bar_x, bar_y, bar_width, bar_height, NEON_PURPLE);
+
+    // Draw the progress
+    draw_rectangle(bar_x, bar_y, bar_width * progress, bar_height, NEON_BLUE);
+
+    // Add glow effect
+    for i in 1..3 {
+        let glow_alpha = 0.1 / (i as f32);
+        draw_rectangle_lines(
+            bar_x - (i as f32),
+            bar_y - (i as f32),
+            bar_width + 2.0 * (i as f32),
+            bar_height + 2.0 * (i as f32),
+            1.0,
+            Color::new(NEON_PURPLE.r, NEON_PURPLE.g, NEON_PURPLE.b, glow_alpha)
+        );
+    }
 }
 
 /// Draw the score.
@@ -208,12 +388,24 @@ pub fn draw_loading_bar(elapsed_time: f32) {
 /// The `score` parameter is the current score.
 ///
 /// The function draws a black rectangle with a white border and the score inside.
-pub fn draw_score(score: i32) {
+pub fn draw_score(score: i32, assets: &Assets) {
     let score_text = format!("Score: {}", score);
 
-    draw_text(&score_text, DRAW_SCORE_X + 2.0, DRAW_SCORE_Y + 2.0, SCORE_FONT_SIZE, DARKGRAY);
+    // Neon glow effect behind the score
+    draw_text_ex(&score_text, DRAW_SCORE_X + 4.0, DRAW_SCORE_Y + 4.0, TextParams {
+        font: Some(&assets.cyberpunk_font), // Use the default font or your loaded cyberpunk font
+        font_size: SCORE_FONT_SIZE as u16,
+        color: Color::new(0.1, 0.1, 0.1, 0.8), // Soft shadow glow behind the score
+        ..Default::default()
+    });
 
-    draw_text(&score_text, DRAW_SCORE_X, DRAW_SCORE_Y, SCORE_FONT_SIZE, GOLD_COLOR);
+    // Neon blue main score text
+    draw_text_ex(&score_text, DRAW_SCORE_X, DRAW_SCORE_Y, TextParams {
+        font: Some(&assets.cyberpunk_font),
+        font_size: SCORE_FONT_SIZE as u16,
+        color: NEON_BLUE, // Neon color for the score text
+        ..Default::default()
+    });
 }
 
 /// Draw the floating texts.
@@ -223,7 +415,7 @@ pub fn draw_score(score: i32) {
 /// The `elapsed` parameter is the elapsed time since the game started.
 ///
 /// The function draws each text in the vector with a y offset based on the elapsed time.
-pub fn draw_floating_texts(floating_texts: &mut Vec<FloatingText>, elapsed: f64) {
+pub fn draw_floating_texts(floating_texts: &mut Vec<FloatingText>, elapsed: f64, assets: &Assets) {
     floating_texts.retain(|text| {
         let time_since_spawn = elapsed - text.spawn_time;
         if time_since_spawn < text.duration {
@@ -232,7 +424,13 @@ pub fn draw_floating_texts(floating_texts: &mut Vec<FloatingText>, elapsed: f64)
 
             let color = Color::new(1.0, 0.0, 0.0, alpha);
 
-            draw_text(&text.text, text.position.x, text.position.y - y_offset, FONT_SIZE, color);
+            draw_text_ex(&text.text, text.position.x, text.position.y - y_offset, TextParams {
+                font: Some(&assets.cyberpunk_font),
+                font_size: 24,
+                color,
+                ..Default::default()
+            });
+
             true
         } else {
             false
