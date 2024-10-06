@@ -1,11 +1,9 @@
 use crate::structs::{ Circle, FloatingText };
 use crate::constants::*;
-use macroquad::prelude::{ Vec2, KeyCode, mouse_position, is_key_pressed };
+use macroquad::prelude::{ Vec2, KeyCode, mouse_position, is_key_pressed, draw_circle, Color };
 use rand::Rng;
 
-/// Initialize circles for a game. Each circle is given a random position around the `center` point
-/// within `spawn_radius` and a random angle. The spawn time is the given `beat_time` minus `shrink_time`
-/// plus `delay`. The hit time is the given `beat_time` plus `delay`.
+/// Initialize circles for a game with animations
 pub fn initialize_circles(
     beats: &[f64],
     rng: &mut impl Rng,
@@ -37,10 +35,7 @@ pub fn initialize_circles(
         .collect()
 }
 
-/// Check if a circle is hit by the player. If the player has pressed the key and the mouse is within
-/// the circle's radius, mark the circle as hit and increase the score. The score is increased by
-/// `calculate_score(hit_time, elapsed)`, which is a function that takes the hit time and the current time
-/// and returns the score.
+/// Handle key hits with animation and feedback
 pub fn handle_key_hits(circles: &mut Vec<Circle>, elapsed: f64, score: &mut i32, shrink_time: f64) {
     let mouse_pos: Vec2 = mouse_position().into();
     let key_pressed = is_key_pressed(KeyCode::A) || is_key_pressed(KeyCode::S);
@@ -56,8 +51,7 @@ pub fn handle_key_hits(circles: &mut Vec<Circle>, elapsed: f64, score: &mut i32,
     }
 }
 
-/// Calculate the current radius of a circle given the elapsed time and the shrink time. If the circle
-/// is not yet spawned, returns None.
+/// Calculate the shrinking radius with animation
 fn circle_radius(circle: &Circle, elapsed: f64, shrink_time: f64) -> Option<f32> {
     let time_since_spawn = elapsed - circle.spawn_time;
     if (0.0..=shrink_time).contains(&time_since_spawn) {
@@ -67,13 +61,12 @@ fn circle_radius(circle: &Circle, elapsed: f64, shrink_time: f64) -> Option<f32>
     }
 }
 
-/// Calculate the initial spawn radius of the circles based on the screen width and height.
+/// Calculate the spawn radius based on the screen size
 pub fn calculate_spawn_radius(width: f32, height: f32) -> f32 {
     width.min(height) / 2.0 - 100.0
 }
 
-/// Check if a circle is missed by the player. If a circle is not yet hit and the elapsed time is greater
-/// than the shrink time, mark the circle as missed and add a "Miss" text to the floating texts.
+/// Handle missed circles and animate a "Miss" text
 pub fn handle_missed_circles(
     circles: &mut Vec<Circle>,
     elapsed: f64,
@@ -96,8 +89,7 @@ pub fn handle_missed_circles(
     }
 }
 
-/// Calculate the score based on the difference between the hit time and the current time. The score is
-/// higher if the difference is smaller.
+/// Score calculation based on the hit time and elapsed time
 pub fn calculate_score(hit_time: f64, current_time: f64) -> i32 {
     let time_difference = (current_time - hit_time).abs();
     if time_difference < 0.1 {
@@ -109,29 +101,31 @@ pub fn calculate_score(hit_time: f64, current_time: f64) -> i32 {
     }
 }
 
-/// Draw all the circles in the given vector. The radius of the circle is calculated based on the elapsed
-/// time and the shrink time. The color of the circle changes over time.
+/// Draw animated circles with stylizing and dynamic color transitions
 pub fn draw_circles(circles: &Vec<Circle>, elapsed: f64, shrink_time: f64) {
-    use macroquad::prelude::{ draw_circle, Color };
     for circle in circles {
         let time_since_spawn = elapsed - circle.spawn_time;
 
         if (0.0..=shrink_time).contains(&time_since_spawn) && !circle.hit {
+            // Shrink the circle with a smooth scaling effect
             let scale = 1.0 - time_since_spawn / shrink_time;
             let radius = circle.max_radius * (scale as f32);
 
+            // Draw an animated outline with a pulsing effect
+            let pulse_intensity = 0.5 + (elapsed.sin() as f32) * 0.5;
             draw_circle(
                 circle.position.x,
                 circle.position.y,
                 radius + OUTLINE_THICKNESS,
-                OUTLINE_COLOR
+                Color::new(OUTLINE_COLOR.r, OUTLINE_COLOR.g, OUTLINE_COLOR.b, pulse_intensity)
             );
 
+            // Use a predefined neon color for the circle's fill
             let color = Color::new(
-                0.2 + (scale as f32) * 0.8,
-                0.4,
-                0.8 - (scale as f32) * 0.8,
-                0.8 - (scale as f32) * 0.5
+                0.0, // Red channel (no red)
+                0.75, // Green channel (neon green/blue)
+                1.0, // Blue channel (maximum neon blue)
+                0.6 - (scale as f32) * 0.5 // Alpha channel: fade the alpha as it shrinks
             );
 
             draw_circle(circle.position.x, circle.position.y, radius, color);
