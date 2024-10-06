@@ -1,6 +1,7 @@
 // src/structs.rs
 
-use macroquad::prelude::{ Texture2D, Vec2 };
+use macroquad::prelude::Vec2;
+use macroquad::text::Font;
 use std::time::Instant;
 use std::sync::mpsc;
 use rodio::Decoder;
@@ -8,8 +9,7 @@ use std::io::BufReader;
 use std::fs::File;
 
 pub struct Assets {
-    pub menu_background: Texture2D,
-    pub start_button: Texture2D,
+    pub cyberpunk_font: Font,
 }
 
 pub struct SongSelectionState {
@@ -21,6 +21,8 @@ pub enum GameState {
     Menu,
     SongSelection,
     Playing,
+    Settings,
+    Exit,
     Loading {
         rx: mpsc::Receiver<Vec<f64>>,
         start_time: Instant,
