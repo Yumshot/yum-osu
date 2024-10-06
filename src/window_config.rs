@@ -6,7 +6,7 @@ pub fn window_conf() -> Conf {
     let window_height = 600; // Your desired window height
 
     Conf {
-        window_title: "Rhythm Visualizer".to_owned(),
+        window_title: "YumOsu!".to_owned(),
         window_width,
         window_height,
         window_resizable: false,
