@@ -29,60 +29,54 @@ pub fn gather_beats(path: &str) -> Vec<f64> {
 
 /// Find the kick beats in a set of samples
 fn detect_kick_beats(samples: &[f32], sample_rate: u32) -> Vec<f64> {
-    // The size of the buffer for the band-pass filter
     let buffer_size = 1024;
-    // The size of the hop (how much to move the buffer along the samples)
     let hop_size = 512;
 
-    // The frequency of the kick drum
-    let freq = 100.0;
-    // The quality factor for the filter
-    let q_factor = Q_BUTTERWORTH_F32;
+    // Lower the cutoff frequency to capture the bass drum more effectively
+    let cutoff_freq = 120.0; // Adjust this based on the bass frequency range
+    let q_factor = 1.0; // Narrower Q factor for sharper filtering
 
-    // Create the band-pass filter
-    let bandpass_coefficients = Coefficients::<f32>
-        ::from_params(FilterType::BandPass, sample_rate.hz(), freq.hz(), q_factor)
+    // Use a low-pass filter instead of band-pass
+    let lowpass_coefficients = Coefficients::<f32>
+        ::from_params(FilterType::LowPass, sample_rate.hz(), cutoff_freq.hz(), q_factor)
         .unwrap();
 
-    // Initialize the band-pass filter
-    let mut bandpass_filter = DirectForm1::<f32>::new(bandpass_coefficients);
+    let mut lowpass_filter = DirectForm1::<f32>::new(lowpass_coefficients);
 
-    // Apply the band-pass filter to the samples
+    // Apply the low-pass filter to the samples
     let filtered_samples: Vec<f32> = samples
         .iter()
-        .map(|&sample| bandpass_filter.run(sample))
+        .map(|&sample| lowpass_filter.run(sample))
         .collect();
 
-    // Initialize the onset detection
+    // Use Energy mode instead of RMS (since Rms doesn't exist in your library)
     let mut onset = Onset::new(OnsetMode::Energy, buffer_size, hop_size, sample_rate).unwrap();
-    // Set the threshold for the onset detection
-    onset.set_threshold(0.5);
-    // Set the silence for the onset detection
-    onset.set_silence(-40.0);
+    
+    onset.set_threshold(0.4); // Lower the threshold to catch softer bass hits
+    onset.set_silence(-60.0); // Adjust for quieter kicks
 
-    // Initialize the vector to store the kick beats
     let mut beats = Vec::new();
-    // Initialize the buffer to store the samples for the onset detection
     let mut buffer = vec![0.0; buffer_size];
-    // Initialize the position in the samples
     let mut position = 0;
 
-    // Loop through the samples and detect onsets
     while position + buffer_size <= filtered_samples.len() {
-        // Copy the samples into the buffer
         buffer.copy_from_slice(&filtered_samples[position..position + buffer_size]);
 
         // Check for an onset
         if onset.do_result(&buffer).unwrap() > 0.0 {
-            // Get the time of the onset
             let onset_time = onset.get_last_s();
-            // Add the time to the vector of beats
-            beats.push(onset_time as f64);
+
+            // Post-processing: Ignore beats too close together (e.g., less than 150 ms apart)
+            if beats.is_empty() || (onset_time as f64 - beats.last().unwrap()) > 0.15 {
+                beats.push(onset_time as f64);
+            }
         }
-        // Move the position along the samples
+
         position += hop_size;
     }
 
-    // Return the vector of beats
     beats
 }
+
+
+
