@@ -50,7 +50,7 @@ pub fn draw_menu(assets: &Assets) -> Option<String> {
 
     // Set the animated gradient background (optional)
     let elapsed = get_time(); // Assuming this tracks elapsed time
-    draw_background(scr_width, scr_height, elapsed);
+    //draw_background(scr_width, scr_height, elapsed);
 
     // Draw the title with neon glow
     let title_text = "YumOsu!";
@@ -192,7 +192,7 @@ pub fn draw_choose_audio(
     draw_text_ex(title_text, 20.0, screen_h * 0.1, TextParams {
         font: Some(&assets.cyberpunk_font),
         font_size: CYBERPUNK_FONT_SIZE as u16,
-        color: NEON_PURPLE,
+        color: NEON_PINK,
         ..Default::default()
     });
 
@@ -246,7 +246,7 @@ pub fn draw_choose_audio(
                 scaled_button_y,
                 scaled_button_width,
                 scaled_button_height,
-                NEON_GREEN
+                NEON_BLUE
             );
 
             // Add pulsing glow effect around the button
@@ -438,26 +438,4 @@ pub fn draw_floating_texts(floating_texts: &mut Vec<FloatingText>, elapsed: f64,
     });
 }
 
-/// Draw the background.
-///
-/// The background is a gradient of blue and purple colors.
-///
-/// The `elapsed` parameter is the elapsed time since the game started.
-///
-/// The function draws the gradient based on the elapsed time.
-pub fn draw_background(width: f32, height: f32, elapsed: f64) {
-    let color1 = Color::new(0.1, 0.1, 0.3, 1.0);
-    let color2 = Color::new(0.2, 0.2, 0.5, 1.0);
-    let offset = (elapsed.sin() as f32) * 0.1;
 
-    for y in 0..height as i32 {
-        let t = (y as f32) / height + offset;
-        let blend_color = Color::new(
-            color1.r * (1.0 - t) + color2.r * t,
-            color1.g * (1.0 - t) + color2.g * t,
-            color1.b * (1.0 - t) + color2.b * t,
-            1.0
-        );
-        draw_line(0.0, y as f32, width, y as f32, 1.0, blend_color);
-    }
-}
