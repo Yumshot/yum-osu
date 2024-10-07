@@ -106,6 +106,7 @@ fn handle_ready_to_play_state(
 ) -> GameState {
     // Display the countdown
     let elapsed = ready_time.elapsed().as_secs_f32();
+    clear_background(DARK_BACKGROUND);
     if elapsed < (COUNTDOWN_DURATION as f32) {
         let scr_width = screen_width();
         let scr_height = screen_height();
@@ -127,7 +128,7 @@ fn handle_ready_to_play_state(
         draw_text_ex(&countdown_text, text_x, text_y, TextParams {
             font: Some(&assets.cyberpunk_font),
             font_size: FONT_SIZE,
-            color: NEON_PINK,
+            color: NEON_GREEN,
             ..Default::default()
         });
 
